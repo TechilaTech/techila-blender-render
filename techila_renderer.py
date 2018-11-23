@@ -13,6 +13,7 @@ import bpy
 import bpy_extras.image_utils
 from bpy.props import IntProperty, PointerProperty
 import os
+import tempfile
 import techila
 
 
@@ -126,7 +127,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
 
         results.set_return_idx(True)
 
-        tmpfile = '/tmp/blender-temp-file-1234'
+        tmpfile = tempfile.mkstemp(prefix='techila-blender-')
 
         for res in results:
             idx = res[0]
@@ -147,16 +148,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
             w = image.size[0]
             h = image.size[1]
 
-            print(x)
-            print(y)
-            print(w)
-            print(h)
-            print(scene.render.resolution_x)
-            print(scene.render.resolution_y)
-
             del image
-
-            #pv[idx]
 
             scene.frame_set(frameno)
             result = self.begin_result(x, y, w, h)
