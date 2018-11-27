@@ -2,23 +2,25 @@
 def fun(data):
     import bpy
     import os
-    import time
+
+    outputfn = 'output.exr'
 
     context = bpy.context
     scene = context.scene
     scene.frame_start = data['f1']
     scene.frame_end = data['f2']
 
-    idx = data['idx']
+    #idx = data['idx']
 
-    #bpy.data.scenes["Scene"].render.filepath = '//out'
-    #scene.render.filepath = '//image_#####_' + str(idx) + '.png'
+    scene.render.filepath = '//' + outputfn
 
     rd = scene.render
 
     rd.use_file_extension = True
-    rd.image_settings.file_format='PNG'
-    rd.image_settings.color_mode='RGBA'
+    rd.image_settings.file_format = 'OPEN_EXR_MULTILAYER'
+    rd.image_settings.color_mode = 'RGBA'
+    rd.image_settings.color_depth = '32'
+    rd.image_settings.exr_codec = 'ZIP'
 
     rd.threads = 1
     rd.threads_mode = 'FIXED'
@@ -33,23 +35,15 @@ def fun(data):
     rd.border_min_y = data['y1']
     rd.border_max_y = data['y2']
 
-    bpy.ops.render.render(animation = True,
-                          #write_still = True
+    bpy.context.scene.render.engine = 'CYCLES'
+
+    bpy.ops.render.render(animation = False,
+                          write_still = True
                           )
 
-    image = bpy.data.images['Render Result']
-
-
-    outputfn = 'output.png'
-    image.save_render(outputfn)
-
-    files = os.listdir('.')
-
     f = open(outputfn, 'rb')
-
     content = f.read()
     f.close()
 
-    return {'files' : files,
-            'imagedata' : content}
-
+    return {'data': data,
+            'imagedata': content}

@@ -70,11 +70,14 @@ class TechilaRenderer(bpy.types.RenderEngine):
         datafiles = []
 
         for root, dirs, files in os.walk(datadir):
+            if '.git' in dirs:
+                dirs.remove('.git')
             for fn in files:
                 if (fn.endswith('blend1')
                     or fn.endswith('blend2')
                     or fn.endswith('state')
                     or fn == 'worker_fun.py'
+                    or fn == 'techila_renderer.py'
                     or fn == blendfile
                     ):
                     continue
@@ -113,7 +116,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
                     'y1': y1,
                     'y2': y2,
                     'idx': idx,
-                    }
+                }
 
                 pv.append(data)
 
@@ -149,39 +152,54 @@ class TechilaRenderer(bpy.types.RenderEngine):
                                 #filehandler = copyhandler,
                                 return_iterable = True,
                                 stream = True,
+                                #projectid = 61,
                                 )
 
         results.set_return_idx(True)
 
-        tmpfile = tempfile.mkstemp(prefix='techila-blender-')
+        tmpfile = tempfile.mkstemp(prefix='techila-blender-', suffix='.exr')
         tmpfile = tmpfile[1]
 
         for res in results:
             idx = res[0]
-            data = res[1]
-            imagedata = data['imagedata']
+            resdata = res[1]
+            data = resdata['data']
+            imagedata = resdata['imagedata']
 
             # stupid?
             f = open(tmpfile, 'wb')
             f.write(imagedata)
             f.close()
 
-            frameno = 1
+            frameno = data['f1']
 
-            image = bpy_extras.image_utils.load_image(tmpfile)
+            x1 = data['x1'] * scene.render.resolution_x * scene.render.resolution_percentage / 100
+            x2 = data['x2'] * scene.render.resolution_x * scene.render.resolution_percentage / 100
+            y1 = data['y1'] * scene.render.resolution_y * scene.render.resolution_percentage / 100
+            y2 = data['y2'] * scene.render.resolution_y * scene.render.resolution_percentage / 100
 
-            x = pv[idx]['x1'] * scene.render.resolution_x * scene.render.resolution_percentage / 100
-            y = pv[idx]['y1'] * scene.render.resolution_y * scene.render.resolution_percentage / 100
-            w = image.size[0]
-            h = image.size[1]
+            x = int(x1)
+            y = int(y1)
+            w = round(x2 - x1)
+            h = (y2 - y1)
 
-            del image
+            print('h = {}'.format(h))
+
+            h = round(h)
 
             scene.frame_set(frameno)
+            print('data {} {} {} {}'.format(data['x1'], data['y1'], data['x2'], data['y2']))
+            print('jee {} {} {} {}'.format(x1, y1, x2, y2))
+            print('moi {} {} {} {}'.format(x, y, w, h))
             result = self.begin_result(x, y, w, h)
+            print('result = ', result)
             if result is not None:
-                lay = result.layers[0]
-                lay.load_from_file(tmpfile)
+                #lay = result.layers[0]
+                #lay.load_from_file(tmpfile)
+                try:
+                    result.load_from_file(tmpfile)
+                except Exception as e:
+                    print(e)
                 self.end_result(result)
 
 
