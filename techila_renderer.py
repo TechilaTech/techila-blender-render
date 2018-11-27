@@ -64,12 +64,27 @@ class TechilaRenderer(bpy.types.RenderEngine):
 
         #blendfile = bpy.data.filepath
         index = bpy.data.filepath.rindex('/')
-        datadir = bpy.data.filepath[:index]
+        datadir = '.'  # bpy.data.filepath[:index]
         blendfile = bpy.data.filepath[index + 1:]
 
+        datafiles = []
+
+        for root, dirs, files in os.walk(datadir):
+            for fn in files:
+                if (fn.endswith('blend1')
+                    or fn.endswith('blend2')
+                    or fn.endswith('state')
+                    or fn == 'worker_fun.py'
+                    or fn == blendfile
+                    ):
+                    continue
+
+                fullname = os.path.join(root, fn)
+                datafiles.append(fullname[len(datadir) + 1:])
 
         print('datadir is   ' + datadir)
-        print('blendfile is ' + blendfile)
+        #print('blendfile is ' + blendfile)
+        print('files are    ' + str(datafiles))
 
         settings = scene.techila_render
         tiles_x = settings.slicex
@@ -113,11 +128,22 @@ class TechilaRenderer(bpy.types.RenderEngine):
                                 binary_bundle_parameters = {
                                     'Environment': 'PYTHONPATH;value=%P(tmpdir),SYSTEMROOT;value=C:\\\\Windows;osname=Windows',
                                 },
-                                databundles = [{
-                                    'datafiles': [blendfile],
-                                    'datadir': datadir,
-                                    'libraryfiles': False,
-                                }],
+                                databundles = [
+                                    {
+                                        'datafiles': [blendfile],
+                                        'datadir': datadir,
+                                        'libraryfiles': False,
+                                        'flatten': False,
+                                    },
+                                    {
+                                        'datafiles': datafiles,
+                                        'datadir': datadir,
+                                        'libraryfiles': False,
+                                        'flatten': False,
+                                    }],
+                                project_parameters={
+                                    'techila_worker_os': 'Linux,amd64',
+                                },
                                 peachvector = pv,
                                 imports = ['blender.279'],
                                 #filehandler = copyhandler,
@@ -128,6 +154,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
         results.set_return_idx(True)
 
         tmpfile = tempfile.mkstemp(prefix='techila-blender-')
+        tmpfile = tmpfile[1]
 
         for res in results:
             idx = res[0]
@@ -163,13 +190,30 @@ class TechilaRenderer(bpy.types.RenderEngine):
 
 def register():
     bpy.utils.register_module(__name__)
+
     bpy.types.Scene.techila_render = PointerProperty(type = TechilaSettings,
                                                      name = 'Techila Render',
                                                      description = 'Techila Render Settings')
 
+    # bpy.utils.register_class(TechilaRenderer)
+    # from bl_ui import (
+    #     properties_render,
+    #     properties_material,
+    #     )
+    # properties_render.RENDER_PT_render.COMPAT_ENGINES.add(TechilaRenderer.bl_idname)
+    # properties_material.RENDER_PT_render.COMPAT_ENGINES.add(TechilaRenderer.bl_idname)
+
 
 def unregister():
     bpy.utils.unregister_module(__name__)
+
+    # bpy.utils.unregister_class(TechilaRenderer)
+    # from bl_ui import (
+    #     properties_render,
+    #     properties_material,
+    #     )
+    # properties_render.RENDER_PT_render.COMPAT_ENGINES.remove(TechilaRenderer.bl_idname)
+    # properties_material.RENDER_PT_render.COMPAT_ENGINES.remove(TechilaRenderer.bl_idname)
 
 if __name__ == "__main__":
     register()
