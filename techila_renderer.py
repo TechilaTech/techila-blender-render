@@ -2,8 +2,8 @@ bl_info = {
     "name": "Techila Renderer",
     "description": "Render .blend in Techila.",
     "author": "Kari Koskinen <kari.koskinen@techilatechnologies.com>, Teppo Tammisto <teppo.tammisto@techilatechnologies.com>",
-    "version": (0, 2),
-    "blender": (2, 79, 0),
+    "version": (0, 3),
+    "blender": (2, 82, 0),
     "location": "Render > Engine > Techila",
     "warning": "Experimental",  # used for warning icon and text in addons panel
     # "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/My_Script",
@@ -18,21 +18,21 @@ import techila
 
 
 class TechilaSettings(bpy.types.PropertyGroup):
-    slicex = IntProperty(name = 'X Slices',
-                         description = 'Number of pieces in dimension X',
-                         min = 1,
-                         max = 100,
-                         soft_min = 1,
-                         soft_max = 100,
-                         default = 2)
+    slicex: IntProperty(name = 'X Slices',
+                        description = 'Number of pieces in dimension X',
+                        min = 1,
+                        max = 100,
+                        soft_min = 1,
+                        soft_max = 100,
+                        default = 2)
 
-    slicey = IntProperty(name = 'Y Slices',
-                         description = 'Number of pieces in dimension Y',
-                         min = 1,
-                         max = 100,
-                         soft_min = 1,
-                         soft_max = 100,
-                         default = 2)
+    slicey: IntProperty(name = 'Y Slices',
+                        description = 'Number of pieces in dimension Y',
+                        min = 1,
+                        max = 100,
+                        soft_min = 1,
+                        soft_max = 100,
+                        default = 2)
 
 
 class XXXMenu(bpy.types.Panel):
@@ -60,7 +60,13 @@ class TechilaRenderer(bpy.types.RenderEngine):
     bl_label = 'Techila'
     #bpy.ops.wm.save_mainfile()
 
-    def render(self, scene):
+    def render(self, depsgraph):
+
+        print('depsgraph.mode = {}'.format(depsgraph.mode))
+
+        scene = depsgraph.scene
+
+        print('is_animation = {}'.format(self.is_animation))
 
         #blendfile = bpy.data.filepath
         index = bpy.data.filepath.rindex('/')
@@ -89,36 +95,37 @@ class TechilaRenderer(bpy.types.RenderEngine):
         #print('blendfile is ' + blendfile)
         print('files are    ' + str(datafiles))
 
-        settings = scene.techila_render
-        tiles_x = settings.slicex
-        tiles_y = settings.slicey
+        #settings = scene.techila_render
+        tiles_x = 1 #settings.slicex
+        tiles_y = 1 #settings.slicey
 
         step_x = 1.0 / tiles_x
         step_y = 1.0 / tiles_y
 
         pv = []
-        for x in range(tiles_x):
-            for y in range(tiles_y):
+        for frameno in range(scene.frame_start, scene.frame_end + 1):
+            for x in range(tiles_x):
+                for y in range(tiles_y):
 
-                idx = x * tiles_x + y
+                    idx = x * tiles_x + y
 
-                x1 = x * step_x
-                x2 = x1 + step_x
+                    x1 = x * step_x
+                    x2 = x1 + step_x
 
-                y1 = y * step_y
-                y2 = y1 + step_y
+                    y1 = y * step_y
+                    y2 = y1 + step_y
 
-                data = {
-                    'f1': 1,
-                    'f2': 1,
-                    'x1': x1,
-                    'x2': x2,
-                    'y1': y1,
-                    'y2': y2,
-                    'idx': idx,
-                }
+                    data = {
+                        'f1': frameno,
+                        'f2': frameno,
+                        'x1': x1,
+                        'x2': x2,
+                        'y1': y1,
+                        'y2': y2,
+                        'idx': idx,
+                    }
 
-                pv.append(data)
+                    pv.append(data)
 
         results = techila.peach(funcname = 'fun',
                                 params = ['<param>'],
@@ -127,7 +134,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
                                 realexecutable = '%L(blender)/blender;osname=Linux,%L(blender)\\\\blender.exe;osname=Windows',
                                 python_required = False,
                                 #outputfiles = ['output;regex=true;file=image_\\\\d+_\\\\d+.png'],
-                                exeparams = '-noaudio -b ' + blendfile + ' -P peachclient.py -- <peachclientparams>',
+                                exeparams = '-noaudio --python-use-system-env -b ' + blendfile + ' -P peachclient.py -- <peachclientparams>',
                                 binary_bundle_parameters = {
                                     'Environment': 'PYTHONPATH;value=%P(tmpdir),SYSTEMROOT;value=C:\\\\Windows;osname=Windows',
                                 },
@@ -148,11 +155,12 @@ class TechilaRenderer(bpy.types.RenderEngine):
                                     'techila_worker_os': 'Linux,amd64',
                                 },
                                 peachvector = pv,
-                                imports = ['blender.279'],
+                                imports = ['Blender 2.82a Linux amd64'],
                                 #filehandler = copyhandler,
                                 return_iterable = True,
                                 stream = True,
-                                #projectid = 61,
+                                #resultfile = '/tmp/z/project12817.zip',
+                                #projectid = 12817,
                                 )
 
         results.set_return_idx(True)
@@ -187,6 +195,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
 
             h = round(h)
 
+            print('frameno {}'.format(frameno))
             scene.frame_set(frameno)
             print('data {} {} {} {}'.format(data['x1'], data['y1'], data['x2'], data['y2']))
             print('jee {} {} {} {}'.format(x1, y1, x2, y2))
@@ -202,12 +211,14 @@ class TechilaRenderer(bpy.types.RenderEngine):
                     print(e)
                 self.end_result(result)
 
-
         os.remove(tmpfile)
 
 
 def register():
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    register_class(TechilaRenderer)
+
+    register_class(TechilaSettings)
 
     bpy.types.Scene.techila_render = PointerProperty(type = TechilaSettings,
                                                      name = 'Techila Render',
@@ -223,7 +234,8 @@ def register():
 
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
+    from bpy.utils import unregister_class
+    unregister_class(TechilaRenderer)
 
     # bpy.utils.unregister_class(TechilaRenderer)
     # from bl_ui import (

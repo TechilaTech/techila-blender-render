@@ -27,7 +27,7 @@ This is a plugin to render [Blender](https://www.blender.org/) files with Techil
 
 * Techila Python package must be installed within Blender's Python
   * cd into Techila SDK techila/lib/python3 directory
-  * Using Blender's Python, run setup.py, e.g.: `/tmp/blender-2.79b-linux-glibc219-x86_64/2.79/python/bin/python3.5m setup.py install`
+  * Using Blender's Python, run setup.py, e.g.: `/opt/blender-2.82a-linux64/2.82/python/bin/python3.7m setup.py install`
 
 * Install this plugin into your Blender installation and enable it
 
@@ -38,4 +38,4 @@ This is a plugin to render [Blender](https://www.blender.org/) files with Techil
 
 * Run the following command to create the bundle (check the paths for techila.jar and where you unpacked blender). This will create a bundle and upload it to your Techila server.
 
-```java -jar ~/techila/lib/techila.jar createBundle bundlename="Blender 2.79b Linux amd64" expiration=365d resource=blender export=blender.279 Environment="LD_LIBRARY_PATH;value=%L(blender)/lib" ExternalResources="blender;resource=blender" natives="blender;osname=Linux;processor=amd64" trimpath=/tmp/blender-2.79b-linux-glibc219-x86_64/ /tmp/blender-2.79b-linux-glibc219-x86_64```
+```java -jar ~/techila/lib/techila.jar createBundle bundlename="Blender 2.82a Linux amd64" expiration=365d resource=blender export=blender.282a Environment="LD_LIBRARY_PATH;value=%L(blender)/lib" ExternalResources="blender;resource=blender" natives="blender;osname=Linux;processor=amd64" trimpath=/tmp/blender-2.82a-linux64/ /tmp/blender-2.82a-linux64```
