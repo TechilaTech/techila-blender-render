@@ -9,6 +9,7 @@ def fun(data):
     scene = context.scene
     scene.frame_start = data['f1']
     scene.frame_end = data['f2']
+    scene.frame_set(data['f1'])
 
     #idx = data['idx']
 

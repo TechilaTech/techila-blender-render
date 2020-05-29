@@ -58,6 +58,7 @@ class XXXMenu(bpy.types.Panel):
 class TechilaRenderer(bpy.types.RenderEngine):
     bl_idname = 'TECHILA_RENDER'
     bl_label = 'Techila'
+    #bl_use_save_buffers = True
     #bpy.ops.wm.save_mainfile()
 
     def render(self, depsgraph):
@@ -68,10 +69,22 @@ class TechilaRenderer(bpy.types.RenderEngine):
 
         print('is_animation = {}'.format(self.is_animation))
 
-        #blendfile = bpy.data.filepath
+        frame_start = scene.frame_start
+        frame_end = scene.frame_end
+        frame_current = scene.frame_current
+
+        print('current frame = {}'.format(frame_current))
+
+        if not self.is_animation:
+            frame_start = frame_current
+            frame_end = frame_current
+
         index = bpy.data.filepath.rindex('/')
-        datadir = '.'  # bpy.data.filepath[:index]
+        datadir = bpy.data.filepath[:index]
         blendfile = bpy.data.filepath[index + 1:]
+
+        print('datadir = {}'.format(datadir))
+        print('blendfile = {}'.format(blendfile))
 
         datafiles = []
 
@@ -91,19 +104,17 @@ class TechilaRenderer(bpy.types.RenderEngine):
                 fullname = os.path.join(root, fn)
                 datafiles.append(fullname[len(datadir) + 1:])
 
-        print('datadir is   ' + datadir)
-        #print('blendfile is ' + blendfile)
         print('files are    ' + str(datafiles))
 
         #settings = scene.techila_render
-        tiles_x = 1 #settings.slicex
-        tiles_y = 1 #settings.slicey
+        tiles_x = 2 #settings.slicex
+        tiles_y = 2 #settings.slicey
 
         step_x = 1.0 / tiles_x
         step_y = 1.0 / tiles_y
 
         pv = []
-        for frameno in range(scene.frame_start, scene.frame_end + 1):
+        for frameno in range(frame_start, frame_end + 1):
             for x in range(tiles_x):
                 for y in range(tiles_y):
 
@@ -196,7 +207,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
             h = round(h)
 
             print('frameno {}'.format(frameno))
-            scene.frame_set(frameno)
+            #scene.frame_set(frameno)
             print('data {} {} {} {}'.format(data['x1'], data['y1'], data['x2'], data['y2']))
             print('jee {} {} {} {}'.format(x1, y1, x2, y2))
             print('moi {} {} {} {}'.format(x, y, w, h))
