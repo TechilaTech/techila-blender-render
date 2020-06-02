@@ -55,6 +55,10 @@ class XXXMenu(bpy.types.Panel):
         layout.prop(settings, 'slicey')
 
 
+class TechilaCache(object):
+    cached_results = None
+
+
 class TechilaRenderer(bpy.types.RenderEngine):
     bl_idname = 'TECHILA_RENDER'
     bl_label = 'Techila'
@@ -62,23 +66,32 @@ class TechilaRenderer(bpy.types.RenderEngine):
     #bpy.ops.wm.save_mainfile()
 
     def render(self, depsgraph):
-
-        print('depsgraph.mode = {}'.format(depsgraph.mode))
+        print('render {}'.format(depsgraph.scene.frame_current))
 
         scene = depsgraph.scene
 
-        print('is_animation = {}'.format(self.is_animation))
-
+        frame_current = scene.frame_current
         frame_start = scene.frame_start
         frame_end = scene.frame_end
-        frame_current = scene.frame_current
-
-        print('current frame = {}'.format(frame_current))
 
         if not self.is_animation:
             frame_start = frame_current
             frame_end = frame_current
 
+        if TechilaCache.cached_results is None:
+            # first frame, start new Techila project
+            self.new_render(scene, frame_start, frame_end)
+
+        if TechilaCache.cached_results is not None:
+            resultdata = TechilaCache.cached_results[frame_current]
+            print('popped {}'.format(resultdata))
+            self.load_result(scene, resultdata)
+
+        if frame_current == frame_end:
+            print('last frame')
+            TechilaCache.cached_results = None
+
+    def new_render(self, scene, frame_start, frame_end):
         index = bpy.data.filepath.rindex('/')
         datadir = bpy.data.filepath[:index]
         blendfile = bpy.data.filepath[index + 1:]
@@ -107,8 +120,8 @@ class TechilaRenderer(bpy.types.RenderEngine):
         print('files are    ' + str(datafiles))
 
         #settings = scene.techila_render
-        tiles_x = 2 #settings.slicex
-        tiles_y = 2 #settings.slicey
+        tiles_x = 1 #settings.slicex
+        tiles_y = 1 #settings.slicey
 
         step_x = 1.0 / tiles_x
         step_y = 1.0 / tiles_y
@@ -167,62 +180,73 @@ class TechilaRenderer(bpy.types.RenderEngine):
                                 },
                                 peachvector = pv,
                                 imports = ['Blender 2.82a Linux amd64'],
-                                #filehandler = copyhandler,
-                                return_iterable = True,
+                                #filehandler = self.filehandler,
+                                #return_iterable = True,
                                 stream = True,
                                 #resultfile = '/tmp/z/project12817.zip',
                                 #projectid = 12817,
+                                #outputfiles=['output.png'],
                                 )
 
-        results.set_return_idx(True)
+        #results.set_return_idx(True)
 
-        tmpfile = tempfile.mkstemp(prefix='techila-blender-', suffix='.exr')
-        tmpfile = tmpfile[1]
+        TechilaCache.cached_results = {}
 
-        for res in results:
-            idx = res[0]
-            resdata = res[1]
+        for resdata in results:
             data = resdata['data']
+            frameno = data['f1']
+
             imagedata = resdata['imagedata']
 
-            # stupid?
-            f = open(tmpfile, 'wb')
+            tmpfile = tempfile.mkstemp(prefix=f'techila-blender-{frameno}-', suffix='.png')
+
+            f = open(tmpfile[0], 'wb')
             f.write(imagedata)
             f.close()
 
-            frameno = data['f1']
+            data['filename'] = tmpfile[1]
+            print('data = {}'.format(data))
+            TechilaCache.cached_results[frameno] = data
 
-            x1 = data['x1'] * scene.render.resolution_x * scene.render.resolution_percentage / 100
-            x2 = data['x2'] * scene.render.resolution_x * scene.render.resolution_percentage / 100
-            y1 = data['y1'] * scene.render.resolution_y * scene.render.resolution_percentage / 100
-            y2 = data['y2'] * scene.render.resolution_y * scene.render.resolution_percentage / 100
+    def load_result(self, scene, data):
+        frameno = data['f1']
 
-            x = int(x1)
-            y = int(y1)
-            w = round(x2 - x1)
-            h = (y2 - y1)
+        x1 = data['x1'] * scene.render.resolution_x * scene.render.resolution_percentage / 100
+        x2 = data['x2'] * scene.render.resolution_x * scene.render.resolution_percentage / 100
+        y1 = data['y1'] * scene.render.resolution_y * scene.render.resolution_percentage / 100
+        y2 = data['y2'] * scene.render.resolution_y * scene.render.resolution_percentage / 100
 
-            print('h = {}'.format(h))
+        x = int(x1)
+        y = int(y1)
+        w = round(x2 - x1)
+        h = (y2 - y1)
 
-            h = round(h)
+        #print('h = {}'.format(h))
 
-            print('frameno {}'.format(frameno))
-            #scene.frame_set(frameno)
-            print('data {} {} {} {}'.format(data['x1'], data['y1'], data['x2'], data['y2']))
-            print('jee {} {} {} {}'.format(x1, y1, x2, y2))
-            print('moi {} {} {} {}'.format(x, y, w, h))
-            result = self.begin_result(x, y, w, h)
-            print('result = ', result)
-            if result is not None:
-                #lay = result.layers[0]
-                #lay.load_from_file(tmpfile)
-                try:
-                    result.load_from_file(tmpfile)
-                except Exception as e:
-                    print(e)
-                self.end_result(result)
+        h = round(h)
 
-        os.remove(tmpfile)
+        print('frameno {}'.format(frameno))
+        scene.frame_set(frameno)
+        print('data {} {} {} {}'.format(data['x1'], data['y1'], data['x2'], data['y2']))
+        print('jee {} {} {} {}'.format(x1, y1, x2, y2))
+        print('moi {} {} {} {}'.format(x, y, w, h))
+        result = self.begin_result(x, y, w, h)
+        print('result = ', result)
+        if result is not None:
+            try:
+                lay = result.layers[0]
+                lay.load_from_file(data['filename'])
+
+                # result.load_from_file(tmpfile)
+            except Exception as e:
+                print(e)
+            self.end_result(result)
+
+        os.remove(data['filename'])
+
+
+    def filehandler(self, filename):
+        pass
 
 
 def register():

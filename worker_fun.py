@@ -3,7 +3,8 @@ def fun(data):
     import bpy
     import os
 
-    outputfn = 'output.exr'
+    #outputfn = 'output.exr'
+    outputfn = 'output.png'
 
     context = bpy.context
     scene = context.scene
@@ -18,10 +19,12 @@ def fun(data):
     rd = scene.render
 
     rd.use_file_extension = True
-    rd.image_settings.file_format = 'OPEN_EXR_MULTILAYER'
+    #rd.image_settings.file_format = 'OPEN_EXR_MULTILAYER'
+    #rd.image_settings.color_mode = 'RGBA'
+    #rd.image_settings.color_depth = '32'
+    #rd.image_settings.exr_codec = 'ZIP'
+    rd.image_settings.file_format = 'PNG'
     rd.image_settings.color_mode = 'RGBA'
-    rd.image_settings.color_depth = '32'
-    rd.image_settings.exr_codec = 'ZIP'
 
     rd.threads = 1
     rd.threads_mode = 'FIXED'
@@ -46,5 +49,7 @@ def fun(data):
     content = f.read()
     f.close()
 
-    return {'data': data,
-            'imagedata': content}
+    return {
+        'data': data,
+        'imagedata': content,
+    }
