@@ -187,7 +187,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
                                 #return_iterable = True,
                                 stream = True,
                                 #resultfile = '/tmp/z/project13337.zip',
-                                projectid = 13337,
+                                #projectid = 13337,
                                 outputfiles=['output.png'],
                                 callback_obj=obj,
                                 )
