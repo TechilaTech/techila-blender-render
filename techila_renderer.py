@@ -13,6 +13,7 @@ import bpy
 import bpy_extras.image_utils
 from bpy.props import IntProperty, PointerProperty
 import os
+import shutil
 import tempfile
 import techila
 
@@ -151,6 +152,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
 
                     pv.append(data)
 
+        obj = {}
         results = techila.peach(funcname = 'fun',
                                 params = ['<param>'],
                                 files = ['worker_fun.py'],
@@ -180,12 +182,14 @@ class TechilaRenderer(bpy.types.RenderEngine):
                                 },
                                 peachvector = pv,
                                 imports = ['Blender 2.82a Linux amd64'],
-                                #filehandler = self.filehandler,
+                                callback=self.callback,
+                                filehandler = self.filehandler,
                                 #return_iterable = True,
                                 stream = True,
-                                #resultfile = '/tmp/z/project12817.zip',
-                                #projectid = 12817,
-                                #outputfiles=['output.png'],
+                                #resultfile = '/tmp/z/project13337.zip',
+                                projectid = 13337,
+                                outputfiles=['output.png'],
+                                callback_obj=obj,
                                 )
 
         #results.set_return_idx(True)
@@ -196,15 +200,6 @@ class TechilaRenderer(bpy.types.RenderEngine):
             data = resdata['data']
             frameno = data['f1']
 
-            imagedata = resdata['imagedata']
-
-            tmpfile = tempfile.mkstemp(prefix=f'techila-blender-{frameno}-', suffix='.png')
-
-            f = open(tmpfile[0], 'wb')
-            f.write(imagedata)
-            f.close()
-
-            data['filename'] = tmpfile[1]
             print('data = {}'.format(data))
             TechilaCache.cached_results[frameno] = data
 
@@ -244,9 +239,17 @@ class TechilaRenderer(bpy.types.RenderEngine):
 
         os.remove(data['filename'])
 
+    def callback(self, result, obj):
+        print('** CB {} {}'.format(result, obj))
+        frameno = result['data']['f1']
+        tmpfile = tempfile.mkstemp(prefix=f'techila-blender-{frameno}-', suffix='.png')
+        obj['filename'] = tmpfile[1]
+        result['data']['filename'] = tmpfile[1]
+        return result
 
-    def filehandler(self, filename):
-        pass
+    def filehandler(self, filename, obj):
+        print('## FH {} {}'.format(filename, obj))
+        shutil.copy(filename, obj['filename'])
 
 
 def register():

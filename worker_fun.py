@@ -45,11 +45,11 @@ def fun(data):
                           write_still = True
                           )
 
-    f = open(outputfn, 'rb')
-    content = f.read()
-    f.close()
+    #f = open(outputfn, 'rb')
+    #content = f.read()
+    #f.close()
 
     return {
         'data': data,
-        'imagedata': content,
+        #'imagedata': content,
     }
