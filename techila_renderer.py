@@ -106,6 +106,7 @@ class TechilaRenderPanel(bpy.types.Panel):
 
 class TechilaCache(object):
     cached_results = None
+    txformat = None
 
 
 class TechilaRenderer(bpy.types.RenderEngine):
@@ -175,17 +176,17 @@ class TechilaRenderer(bpy.types.RenderEngine):
         settings = scene.techila_render
 
         render_engine = settings.render_engine
-        self.txformat = settings.txformat
+        txformat = settings.txformat
         tiles_x = settings.slicex
         tiles_y = settings.slicey
 
-        if self.txformat == 'OPEN_EXR_MULTILAYER':
+        if txformat == 'OPEN_EXR_MULTILAYER':
             outputfile = 'output.exr'
         else:
             outputfile = 'output.png'
 
         print('render_engine = {}'.format(render_engine))
-        print('txformat = {}'.format(self.txformat))
+        print('txformat = {}'.format(txformat))
         print('slicex = {}, slicey = {}'.format(tiles_x, tiles_y))
 
         step_x = 1.0 / tiles_x
@@ -218,7 +219,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
 
         obj = {}
         results = techila.peach(funcname='fun',
-                                params=['<param>', render_engine, self.txformat],
+                                params=['<param>', render_engine, txformat],
                                 files=['worker_fun.py'],
                                 executable=True,
                                 realexecutable='%L(blender)/blender;osname=Linux,%L(blender)\\\\blender.exe;osname=Windows',
@@ -245,7 +246,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
                                     'techila_worker_os': 'Linux,amd64',
                                 },
                                 peachvector=pv,
-                                imports=['Blender 2.82a Linux amd64'],
+                                imports=['blender.282a'],
                                 callback=self.callback,
                                 filehandler=self.filehandler,
                                 #return_iterable=True,
@@ -259,6 +260,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
         #results.set_return_idx(True)
 
         TechilaCache.cached_results = {}
+        TechilaCache.txformat = txformat
 
         for resdata in results:
             data = resdata['data']
@@ -293,7 +295,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
         print('result = ', result)
         if result is not None:
             try:
-                if self.txformat == 'OPEN_EXR_MULTILAYER':
+                if TechilaCache.txformat == 'OPEN_EXR_MULTILAYER':
                     result.load_from_file(data['filename'])
                 else:
                     lay = result.layers[0]
@@ -309,7 +311,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
         print('** CB {} {}'.format(result, obj))
         frameno = result['data']['f1']
 
-        if self.txformat == 'OPEN_EXR_MULTILAYER':
+        if TechilaCache.txformat == 'OPEN_EXR_MULTILAYER':
             suffix = '.exr'
         else:
             suffix = '.png'

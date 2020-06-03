@@ -38,4 +38,4 @@ This is a plugin to render [Blender](https://www.blender.org/) files with Techil
 
 * Run the following command to create the bundle (check the paths for techila.jar and where you unpacked blender). This will create a bundle and upload it to your Techila server.
 
-```java -jar ~/techila/lib/techila.jar createBundle bundlename="Blender 2.82a Linux amd64" expiration=365d resource=blender export=blender.282a Environment="LD_LIBRARY_PATH;value=%L(blender)/lib" ExternalResources="blender;resource=blender" natives="blender;osname=Linux;processor=amd64" trimpath=/tmp/blender-2.82a-linux64/ /tmp/blender-2.82a-linux64```
+```java -jar ~/techila/lib/techila.jar createBundle bundlename="Blender 2.82a Linux amd64" expiration=365d resource=blender exports=blender.282a Environment="LD_LIBRARY_PATH;value=%L(blender)/lib" ExternalResources="blender;resource=blender" natives="blender;osname=Linux;processor=amd64" trimpath=/opt/blender-2.82a-linux64/ /opt/blender-2.82a-linux64```
