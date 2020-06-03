@@ -11,49 +11,97 @@ bl_info = {
 
 import bpy
 import bpy_extras.image_utils
-from bpy.props import IntProperty, PointerProperty
+from bpy.props import IntProperty, PointerProperty, EnumProperty
 import os
 import shutil
 import tempfile
 import techila
 
 
+# Cycles is the only one that works
+# others error out with "Unable to open a display"
+enum_render_engine = (
+    #('BLENDER_EEVEE', 'Eevee', ''),
+    #('BLENDER_WORKBENCH', 'Workbench', ''),
+    ('CYCLES', 'Cycles', ''),
+)
+
+enum_txformat = (
+    ('PNG', 'PNG', ''),
+    ('OPEN_EXR_MULTILAYER', 'OpenEXR MultiLayer', ''),
+)
+
+
 class TechilaSettings(bpy.types.PropertyGroup):
-    slicex: IntProperty(name = 'X Slices',
-                        description = 'Number of pieces in dimension X',
-                        min = 1,
-                        max = 100,
-                        soft_min = 1,
-                        soft_max = 100,
-                        default = 2)
+    slicex: IntProperty(
+        name='X Slices',
+        description='Number of pieces in dimension X',
+        min=1,
+        max=1,
+        soft_min=1,
+        soft_max=1,
+        default=1)
 
-    slicey: IntProperty(name = 'Y Slices',
-                        description = 'Number of pieces in dimension Y',
-                        min = 1,
-                        max = 100,
-                        soft_min = 1,
-                        soft_max = 100,
-                        default = 2)
+    slicey: IntProperty(
+        name='Y Slices',
+        description='Number of pieces in dimension Y',
+        min=1,
+        max=1,
+        soft_min=1,
+        soft_max=1,
+        default=1)
+
+    render_engine: EnumProperty(
+        name='Render Engine',
+        description='Render Engine used on worker',
+        items=enum_render_engine,
+        default='CYCLES',
+    )
+
+    txformat: EnumProperty(
+        name='Transfer format',
+        description='File format for result transfer',
+        items=enum_txformat,
+        default='PNG',
+    )
+
+    @classmethod
+    def register(cls):
+        bpy.types.Scene.techila_render = PointerProperty(
+            name='Techila Render Settings',
+            description='Techila Render Settings',
+            type=cls,
+        )
+
+    @classmethod
+    def unregister(cls):
+        del bpy.types.Scene.techila_render
 
 
-class XXXMenu(bpy.types.Panel):
+class TechilaRenderPanel(bpy.types.Panel):
+    bl_idname = 'RENDER_PT_Techila'
+    bl_label = 'Render Settings'
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = 'render'
-    bl_label = 'Settings'
-    COMPAT_ENGINES = set(['TECHILA_RENDER'])
-
-    @classmethod
-    def poll(cls, context):
-        rd = context.scene.render
-        return (rd.use_game_engine is False) and (rd.engine in cls.COMPAT_ENGINES)
+    COMPAT_ENGINES = {'TECHILA_RENDER'}
 
     def draw(self, context):
         layout = self.layout
+
         scene = context.scene
-        settings = scene.techila_render
-        layout.prop(settings, 'slicex')
-        layout.prop(settings, 'slicey')
+        tscene = scene.techila_render
+
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        layout.prop(tscene, 'render_engine')
+        layout.prop(tscene, 'txformat')
+
+        col = layout.column(align=True)
+
+        col.prop(tscene, 'slicex')
+        col.prop(tscene, 'slicey')
 
 
 class TechilaCache(object):
@@ -84,9 +132,13 @@ class TechilaRenderer(bpy.types.RenderEngine):
             self.new_render(scene, frame_start, frame_end)
 
         if TechilaCache.cached_results is not None:
-            resultdata = TechilaCache.cached_results[frame_current]
-            print('popped {}'.format(resultdata))
-            self.load_result(scene, resultdata)
+            try:
+                resultdata = TechilaCache.cached_results[frame_current]
+                print('popped {}'.format(resultdata))
+                self.load_result(scene, resultdata)
+            except KeyError:
+                # reset state
+                TechilaCache.cached_results = None
 
         if frame_current == frame_end:
             print('last frame')
@@ -120,9 +172,21 @@ class TechilaRenderer(bpy.types.RenderEngine):
 
         print('files are    ' + str(datafiles))
 
-        #settings = scene.techila_render
-        tiles_x = 1 #settings.slicex
-        tiles_y = 1 #settings.slicey
+        settings = scene.techila_render
+
+        render_engine = settings.render_engine
+        self.txformat = settings.txformat
+        tiles_x = settings.slicex
+        tiles_y = settings.slicey
+
+        if self.txformat == 'OPEN_EXR_MULTILAYER':
+            outputfile = 'output.exr'
+        else:
+            outputfile = 'output.png'
+
+        print('render_engine = {}'.format(render_engine))
+        print('txformat = {}'.format(self.txformat))
+        print('slicex = {}, slicey = {}'.format(tiles_x, tiles_y))
 
         step_x = 1.0 / tiles_x
         step_y = 1.0 / tiles_y
@@ -153,18 +217,18 @@ class TechilaRenderer(bpy.types.RenderEngine):
                     pv.append(data)
 
         obj = {}
-        results = techila.peach(funcname = 'fun',
-                                params = ['<param>'],
-                                files = ['worker_fun.py'],
-                                executable = True,
-                                realexecutable = '%L(blender)/blender;osname=Linux,%L(blender)\\\\blender.exe;osname=Windows',
-                                python_required = False,
+        results = techila.peach(funcname='fun',
+                                params=['<param>', render_engine, self.txformat],
+                                files=['worker_fun.py'],
+                                executable=True,
+                                realexecutable='%L(blender)/blender;osname=Linux,%L(blender)\\\\blender.exe;osname=Windows',
+                                python_required=False,
                                 #outputfiles = ['output;regex=true;file=image_\\\\d+_\\\\d+.png'],
-                                exeparams = '-noaudio --python-use-system-env -b ' + blendfile + ' -P peachclient.py -- <peachclientparams>',
-                                binary_bundle_parameters = {
+                                exeparams='-noaudio --python-use-system-env -b ' + blendfile + ' -P peachclient.py -- <peachclientparams>',
+                                binary_bundle_parameters={
                                     'Environment': 'PYTHONPATH;value=%P(tmpdir),SYSTEMROOT;value=C:\\\\Windows;osname=Windows',
                                 },
-                                databundles = [
+                                databundles=[
                                     {
                                         'datafiles': [blendfile],
                                         'datadir': datadir,
@@ -180,15 +244,15 @@ class TechilaRenderer(bpy.types.RenderEngine):
                                 project_parameters={
                                     'techila_worker_os': 'Linux,amd64',
                                 },
-                                peachvector = pv,
-                                imports = ['Blender 2.82a Linux amd64'],
+                                peachvector=pv,
+                                imports=['Blender 2.82a Linux amd64'],
                                 callback=self.callback,
-                                filehandler = self.filehandler,
-                                #return_iterable = True,
-                                stream = True,
-                                #resultfile = '/tmp/z/project13337.zip',
-                                #projectid = 13337,
-                                outputfiles=['output.png'],
+                                filehandler=self.filehandler,
+                                #return_iterable=True,
+                                stream=True,
+                                #resultfile='/tmp/z/project13337.zip',
+                                #projectid=13337,
+                                outputfiles=[outputfile],
                                 callback_obj=obj,
                                 )
 
@@ -229,10 +293,12 @@ class TechilaRenderer(bpy.types.RenderEngine):
         print('result = ', result)
         if result is not None:
             try:
-                lay = result.layers[0]
-                lay.load_from_file(data['filename'])
+                if self.txformat == 'OPEN_EXR_MULTILAYER':
+                    result.load_from_file(data['filename'])
+                else:
+                    lay = result.layers[0]
+                    lay.load_from_file(data['filename'])
 
-                # result.load_from_file(tmpfile)
             except Exception as e:
                 print(e)
             self.end_result(result)
@@ -242,7 +308,13 @@ class TechilaRenderer(bpy.types.RenderEngine):
     def callback(self, result, obj):
         print('** CB {} {}'.format(result, obj))
         frameno = result['data']['f1']
-        tmpfile = tempfile.mkstemp(prefix=f'techila-blender-{frameno}-', suffix='.png')
+
+        if self.txformat == 'OPEN_EXR_MULTILAYER':
+            suffix = '.exr'
+        else:
+            suffix = '.png'
+
+        tmpfile = tempfile.mkstemp(prefix=f'techila-blender-{frameno}-', suffix=suffix)
         obj['filename'] = tmpfile[1]
         result['data']['filename'] = tmpfile[1]
         return result
@@ -252,36 +324,46 @@ class TechilaRenderer(bpy.types.RenderEngine):
         shutil.copy(filename, obj['filename'])
 
 
+def get_panels():
+    exclude_panels = [
+        'RENDER_PT_simplify',
+        'RENDER_PT_freestyle',
+        'RENDER_PT_color_management',
+        'RENDER_PT_color_management_curve',
+    ]
+
+    panels = []
+    for panel in bpy.types.Panel.__subclasses__():
+        if hasattr(panel, 'COMPAT_ENGINES') and 'BLENDER_RENDER' in panel.COMPAT_ENGINES:
+            if panel.__name__ not in exclude_panels:
+                panels.append(panel)
+
+    return panels
+
+
 def register():
     from bpy.utils import register_class
     register_class(TechilaRenderer)
 
+    for panel in get_panels():
+        panel.COMPAT_ENGINES.add('TECHILA_RENDER')
+
     register_class(TechilaSettings)
-
-    bpy.types.Scene.techila_render = PointerProperty(type = TechilaSettings,
-                                                     name = 'Techila Render',
-                                                     description = 'Techila Render Settings')
-
-    # bpy.utils.register_class(TechilaRenderer)
-    # from bl_ui import (
-    #     properties_render,
-    #     properties_material,
-    #     )
-    # properties_render.RENDER_PT_render.COMPAT_ENGINES.add(TechilaRenderer.bl_idname)
-    # properties_material.RENDER_PT_render.COMPAT_ENGINES.add(TechilaRenderer.bl_idname)
+    register_class(TechilaRenderPanel)
 
 
 def unregister():
     from bpy.utils import unregister_class
+
+    unregister_class(TechilaRenderPanel)
+    unregister_class(TechilaSettings)
+
     unregister_class(TechilaRenderer)
 
-    # bpy.utils.unregister_class(TechilaRenderer)
-    # from bl_ui import (
-    #     properties_render,
-    #     properties_material,
-    #     )
-    # properties_render.RENDER_PT_render.COMPAT_ENGINES.remove(TechilaRenderer.bl_idname)
-    # properties_material.RENDER_PT_render.COMPAT_ENGINES.remove(TechilaRenderer.bl_idname)
+    for panel in get_panels():
+        if 'TECHILA_RENDER' in panel.COMPAT_ENGINES:
+            panel.COMPAT_ENGINES.remove('TECHILA_RENDER')
+
 
 if __name__ == "__main__":
     register()

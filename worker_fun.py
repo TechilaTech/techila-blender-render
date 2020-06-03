@@ -1,10 +1,7 @@
 
-def fun(data):
+def fun(data, render_engine, txformat):
     import bpy
     import os
-
-    #outputfn = 'output.exr'
-    outputfn = 'output.png'
 
     context = bpy.context
     scene = context.scene
@@ -14,17 +11,21 @@ def fun(data):
 
     #idx = data['idx']
 
-    scene.render.filepath = '//' + outputfn
-
     rd = scene.render
 
     rd.use_file_extension = True
-    #rd.image_settings.file_format = 'OPEN_EXR_MULTILAYER'
-    #rd.image_settings.color_mode = 'RGBA'
-    #rd.image_settings.color_depth = '32'
-    #rd.image_settings.exr_codec = 'ZIP'
-    rd.image_settings.file_format = 'PNG'
     rd.image_settings.color_mode = 'RGBA'
+    rd.image_settings.file_format = txformat
+
+    if txformat == 'OPEN_EXR_MULTILAYER':
+        rd.image_settings.color_depth = '32'
+        rd.image_settings.exr_codec = 'ZIP'
+        outputfn = 'output.exr'
+    else:
+        rd.image_settings.color_depth = '16'
+        outputfn = 'output.png'
+
+    scene.render.filepath = '//' + outputfn
 
     rd.threads = 1
     rd.threads_mode = 'FIXED'
@@ -39,17 +40,12 @@ def fun(data):
     rd.border_min_y = data['y1']
     rd.border_max_y = data['y2']
 
-    bpy.context.scene.render.engine = 'CYCLES'
+    bpy.context.scene.render.engine = render_engine
 
-    bpy.ops.render.render(animation = False,
-                          write_still = True
+    bpy.ops.render.render(animation=False,
+                          write_still=True
                           )
-
-    #f = open(outputfn, 'rb')
-    #content = f.read()
-    #f.close()
 
     return {
         'data': data,
-        #'imagedata': content,
     }
