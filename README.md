@@ -27,7 +27,7 @@ This is a plugin to render [Blender](https://www.blender.org/) files with Techil
 
 * Techila Python package must be installed within Blender's Python
   * cd into Techila SDK techila/lib/python3 directory
-  * Using Blender's Python, run setup.py, e.g.: `/opt/blender-2.82a-linux64/2.82/python/bin/python3.7m setup.py install`
+  * Using Blender's Python, run setup.py, e.g.: `/opt/blender-2.83.0-linux64/2.83/python/bin/python3.7m setup.py install`
 
 * Install this plugin into your Blender installation and enable it
 
