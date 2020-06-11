@@ -31,6 +31,11 @@ enum_txformat = (
     ('OPEN_EXR_MULTILAYER', 'OpenEXR MultiLayer', ''),
 )
 
+enum_device = (
+    ('CPU', 'CPU', ''),
+    ('GPU', 'GPU', ''),
+)
+
 
 class TechilaSettings(bpy.types.PropertyGroup):
     slicex: IntProperty(
@@ -65,6 +70,13 @@ class TechilaSettings(bpy.types.PropertyGroup):
         default='PNG',
     )
 
+    device: EnumProperty(
+        name='Render Device',
+        description='Device to use for rendering',
+        items=enum_device,
+        default='CPU',
+    )
+
     @classmethod
     def register(cls):
         bpy.types.Scene.techila_render = PointerProperty(
@@ -96,6 +108,7 @@ class TechilaRenderPanel(bpy.types.Panel):
         layout.use_property_decorate = False
 
         layout.prop(tscene, 'render_engine')
+        layout.prop(tscene, 'device')
         layout.prop(tscene, 'txformat')
 
         col = layout.column(align=True)
@@ -176,6 +189,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
         settings = scene.techila_render
 
         render_engine = settings.render_engine
+        device = settings.device
         txformat = settings.txformat
         tiles_x = settings.slicex
         tiles_y = settings.slicey
@@ -186,6 +200,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
             outputfile = 'output.png'
 
         print('render_engine = {}'.format(render_engine))
+        print('device = {}'.format(device))
         print('txformat = {}'.format(txformat))
         print('slicex = {}, slicey = {}'.format(tiles_x, tiles_y))
 
@@ -219,15 +234,15 @@ class TechilaRenderer(bpy.types.RenderEngine):
 
         obj = {}
         results = techila.peach(funcname='fun',
-                                params=['<param>', render_engine, txformat],
+                                params=['<param>', render_engine, device, txformat],
                                 files=['worker_fun.py'],
                                 executable=True,
                                 realexecutable='%L(blender)/blender;osname=Linux,%L(blender)\\\\blender.exe;osname=Windows',
                                 python_required=False,
-                                #outputfiles = ['output;regex=true;file=image_\\\\d+_\\\\d+.png'],
                                 exeparams='-noaudio --python-use-system-env -b ' + blendfile + ' -P peachclient.py -- <peachclientparams>',
                                 binary_bundle_parameters={
                                     'Environment': 'PYTHONPATH;value=%P(tmpdir),SYSTEMROOT;value=C:\\\\Windows;osname=Windows',
+                                    #'ErrorCodes': 'ignore;codes=11',
                                 },
                                 databundles=[
                                     {
@@ -246,13 +261,12 @@ class TechilaRenderer(bpy.types.RenderEngine):
                                     'techila_worker_os': 'Linux,amd64',
                                 },
                                 peachvector=pv,
-                                imports=['blender.282a'],
+                                imports=['blender.2830'],
                                 callback=self.callback,
                                 filehandler=self.filehandler,
-                                #return_iterable=True,
                                 stream=True,
-                                #resultfile='/tmp/z/project13337.zip',
-                                #projectid=13337,
+                                #resultfile='/tmp/project31.zip',
+                                #projectid=31,
                                 outputfiles=[outputfile],
                                 callback_obj=obj,
                                 )
@@ -266,7 +280,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
             data = resdata['data']
             frameno = data['f1']
 
-            print('data = {}'.format(data))
+            #print('data = {}'.format(data))
             TechilaCache.cached_results[frameno] = data
 
     def load_result(self, scene, data):
@@ -280,19 +294,14 @@ class TechilaRenderer(bpy.types.RenderEngine):
         x = int(x1)
         y = int(y1)
         w = round(x2 - x1)
-        h = (y2 - y1)
-
-        #print('h = {}'.format(h))
-
-        h = round(h)
+        h = round(y2 - y1)
 
         print('frameno {}'.format(frameno))
-        scene.frame_set(frameno)
         print('data {} {} {} {}'.format(data['x1'], data['y1'], data['x2'], data['y2']))
-        print('jee {} {} {} {}'.format(x1, y1, x2, y2))
-        print('moi {} {} {} {}'.format(x, y, w, h))
+        print('x1 {} y1 {} x2 {} y2 {}'.format(x1, y1, x2, y2))
+        print('x {} y {} w {} h {}'.format(x, y, w, h))
         result = self.begin_result(x, y, w, h)
-        print('result = ', result)
+        #print('result = ', result)
         if result is not None:
             try:
                 if TechilaCache.txformat == 'OPEN_EXR_MULTILAYER':
@@ -323,7 +332,7 @@ class TechilaRenderer(bpy.types.RenderEngine):
 
     def filehandler(self, filename, obj):
         print('## FH {} {}'.format(filename, obj))
-        shutil.copy(filename, obj['filename'])
+        shutil.move(filename, obj['filename'])
 
 
 def get_panels():

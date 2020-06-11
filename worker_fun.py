@@ -1,5 +1,5 @@
 
-def fun(data, render_engine, txformat):
+def fun(data, render_engine, device, txformat):
     import bpy
     import os
 
@@ -41,6 +41,27 @@ def fun(data, render_engine, txformat):
     rd.border_max_y = data['y2']
 
     bpy.context.scene.render.engine = render_engine
+
+    if device == 'GPU':
+        # GPU https://developer.blender.org/T61838
+        prefs = bpy.context.preferences
+        cprefs = prefs.addons['cycles'].preferences
+
+        # Attempt to set GPU device types if available
+        for compute_device_type in ('CUDA', 'OPENCL', 'NONE'):
+            try:
+                cprefs.compute_device_type = compute_device_type
+                break
+            except TypeError:
+                pass
+
+        # Enable all CPU and GPU devices
+        for device in cprefs.devices:
+            device.use = True
+
+        bpy.context.scene.cycles.device = 'GPU'
+
+        bpy.context.preferences.addons['cycles'].preferences.get_devices()
 
     bpy.ops.render.render(animation=False,
                           write_still=True
